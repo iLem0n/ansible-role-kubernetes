@@ -13,17 +13,12 @@
   register: add_repository_key
   ignore_errors: "{{ kubernetes_apt_ignore_key_error }}"
 
-- name: Ensure Keyrings dir exists   
-  ansible.builtin.file:
-    path: /etc/apt/keyrings
-    state: directory
-
-- name: Get Kubernetes apt key 
-  get_url:
-    url:  https://pkgs.k8s.io/core:/stable:/v{{kubernetes_version}}/deb/Release.key
-    dest: /etc/apt/keyrings/kubernetes-apt-keyring.gpg    
-    mode: '0644'
-
+- name: apt-key add
+  ansible.builtin.apt_key:
+    keyring: /etc/apt/keyrings/kubernetes-apt-keyring.gpg
+    url: https://pkgs.k8s.io/core:/stable:/v{{kubernetes_version}}/deb/Release.key    
+    state: present
+  
 - name: Add Kubernetes repository.
   apt_repository:
     repo: "{{ kubernetes_apt_repository }}"
