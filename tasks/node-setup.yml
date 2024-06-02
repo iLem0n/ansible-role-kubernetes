@@ -1,4 +1,8 @@
 ---
+- name: Print Join command
+  debug:
+    msg: "Joind command: {{ kubernetes_join_command }}"
+
 - name: Join node to Kubernetes control plane.
   shell: >
     {{ kubernetes_join_command }}

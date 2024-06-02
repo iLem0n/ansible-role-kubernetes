@@ -46,7 +46,7 @@
     mode: 0644
 
 - name: Configure Flannel networking.
-  command: "kubectl apply -f {{ kubernetes_flannel_manifest_file }}"
+  command: "kubectl create -f {{ kubernetes_flannel_manifest_file }}"
   register: flannel_result
   changed_when: "'created' in flannel_result.stdout"
   when: kubernetes_pod_network.cni == 'flannel'
@@ -54,17 +54,41 @@
   delay: 3  
   until: flannel_result.rc == 0
   
-- name: Configure Calico networking.
-  command: "{{ item }}"
-  with_items:
-    - "kubectl create -f {{ kubernetes_calico_manifest_file }}"
-    - "kubectl create -f {{ kubernetes_calico_manifest_file_crd }}"
-  register: calico_result
-  changed_when: "'created' in calico_result.stdout"
+- name: Ensure calico manifest dir exists
+  ansible.builtin.file:
+    path: ~/calico/
+    state: directory 
+    mode: '0755'
+
+- name: Download Calico networking manifests.  
+  ansible.builtin.get_url:
+    url: "{{ item }}"
+    dest: ~/calico/
+    mode: '0664'
+  with_items: 
+    - "{{ kubernetes_calico_manifest_file }}"
+    - "{{ kubernetes_calico_manifest_file_crd }}"
   when: kubernetes_pod_network.cni == 'calico'
-  retries: 3
-  delay: 3  
-  until: calico_result.rc == 0
+
+- name: Ensure Calico networking manifests.
+  kubernetes.core.k8s:
+    state: present
+    src: ~/calico/*.yml
+  loop: "{{ query('fileglob', 'plugins/*') }}"
+  when: kubernetes_pod_network.cni == 'calico'
+
+
+# - name: Configure Calico networking.
+#   command: "{{ item }}"
+#   with_items:
+#     - "kubectl create -f {{ kubernetes_calico_manifest_file }}"
+#     - "kubectl create -f {{ kubernetes_calico_manifest_file_crd }}"
+#   register: calico_result
+#   changed_when: "'created' in calico_result.stdout"
+#   when: kubernetes_pod_network.cni == 'calico'
+#   retries: 3
+#   delay: 3  
+#   until: calico_result.rc == 0
   
 - name: Get Kubernetes version for Weave installation.
   shell: kubectl version | base64 | tr -d '\n'
@@ -75,7 +99,7 @@
 - name: Configure Weave networking.
   command: "{{ item }}"
   with_items:
-    - "kubectl apply -f https://cloud.weave.works/k8s/net?k8s-version={{ kubectl_version.stdout_lines[0] }}"
+    - "kubectl create -f https://cloud.weave.works/k8s/net?k8s-version={{ kubectl_version.stdout_lines[0] }}"
   register: weave_result
   changed_when: "'created' in weave_result.stdout"
   when: kubernetes_pod_network.cni == 'weave'
